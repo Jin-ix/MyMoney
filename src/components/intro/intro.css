@@ -1,0 +1,111 @@
+/* Intro page visual system — premium dark fintech palette */
+
+.intro-root {
+  font-family: 'Plus Jakarta Sans', var(--font-sans);
+  background-color: #050a13;
+  color: #f8fafc;
+}
+
+.intro-grid-texture {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 78%);
+}
+
+.intro-glass {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.intro-card {
+  background: #101d2b;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.intro-gradient-text {
+  background: linear-gradient(92deg, #34d399 0%, #10b981 45%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.intro-emerald-glow {
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.35),
+    0 12px 44px -8px rgba(16, 185, 129, 0.45),
+    0 0 90px -20px rgba(16, 185, 129, 0.55);
+}
+
+/* Entrance motion */
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes intro-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes intro-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(24px, -18px) scale(1.06); }
+  66% { transform: translate(-16px, 14px) scale(0.97); }
+}
+
+@keyframes intro-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes intro-pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.intro-rise {
+  animation: intro-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.intro-fade {
+  animation: intro-fade 1.1s ease-out both;
+}
+
+.intro-float {
+  animation: intro-float 7s ease-in-out infinite;
+}
+
+.intro-float-slow {
+  animation: intro-float 10s ease-in-out infinite;
+}
+
+.intro-drift {
+  animation: intro-drift 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-rise,
+  .intro-fade,
+  .intro-float,
+  .intro-float-slow,
+  .intro-drift {
+    animation: none !important;
+  }
+}
