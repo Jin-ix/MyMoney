@@ -19,6 +19,7 @@ import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { Select } from '@/components/ui/Select';
 import { EXPENSE_CATEGORIES, getCategoryById } from '@/lib/categories';
 import { formatCurrency, isInMonth, clampPercentage } from '@/lib/utils';
+import { calculateCategorySpent } from '@/lib/finance/budgetCalculations';
 import type { Budget } from '@/types';
 
 export default function Budgets() {
@@ -38,17 +39,13 @@ export default function Budgets() {
   const [error, setError] = useState('');
   const [showRecommendations, setShowRecommendations] = useState(false);
 
-  // Month-specific budgets with computed spent amount
+  // Month-specific budgets with computed spent amount (netted for refunds and excluding transfers)
   const monthBudgets = useMemo(() => {
-    const monthExpenses = transactions.filter(
-      (t) => t.type === 'expense' && isInMonth(t.date, currentMonth)
-    );
+    const monthTxs = transactions.filter((t) => isInMonth(t.date, currentMonth));
     return budgets
       .filter((b) => b.month === currentMonth)
       .map((b) => {
-        const spent = monthExpenses
-          .filter((t) => t.category === b.category)
-          .reduce((sum, t) => sum + t.amount, 0);
+        const spent = calculateCategorySpent(monthTxs, b.category);
         return { ...b, spent };
       });
   }, [budgets, transactions, currentMonth]);
@@ -78,14 +75,15 @@ export default function Budgets() {
   // Unbudgeted categories that had spending this month
   const unbudgetedSpending = useMemo(() => {
     const budgetedCats = new Set(monthBudgets.map((b) => b.category));
-    const monthExpenses = transactions.filter(
-      (t) => t.type === 'expense' && isInMonth(t.date, currentMonth)
-    );
+    const monthTxs = transactions.filter((t) => isInMonth(t.date, currentMonth));
 
     const map = new Map<string, number>();
-    for (const t of monthExpenses) {
+    for (const t of monthTxs) {
       if (!budgetedCats.has(t.category)) {
-        map.set(t.category, (map.get(t.category) || 0) + t.amount);
+        const netSpent = calculateCategorySpent(monthTxs, t.category);
+        if (netSpent > 0) {
+          map.set(t.category, netSpent);
+        }
       }
     }
     return Array.from(map.entries()).map(([catId, amount]) => ({

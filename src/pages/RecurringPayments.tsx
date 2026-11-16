@@ -12,6 +12,7 @@ import {
   TrendingUp,
   DollarSign,
   ChevronRight,
+  Pencil,
   Filter,
 } from 'lucide-react';
 import {
@@ -66,6 +67,7 @@ export default function RecurringPayments() {
   const addRecurringPayment = useStore((s) => s.addRecurringPayment);
   const updateRecurringPayment = useStore((s) => s.updateRecurringPayment);
   const deleteRecurringPayment = useStore((s) => s.deleteRecurringPayment);
+  const markRecurringPaymentPaid = useStore((s) => s.markRecurringPaymentPaid);
   const addTransaction = useStore((s) => s.addTransaction);
   const showToast = useStore((s) => s.showToast);
   const symbol = useStore((s) => s.settings.currencySymbol);
@@ -81,6 +83,7 @@ export default function RecurringPayments() {
   const [nextDate, setNextDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [accountId, setAccountId] = useState('');
   const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<RecurringPayment | null>(null);
 
   // Status Filter
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'upcoming'>('all');
@@ -176,20 +179,12 @@ export default function RecurringPayments() {
   };
 
   const handleMarkPaid = (p: RecurringPayment) => {
-    const acc = accounts.find((a) => a.id === p.accountId) || accounts[0];
-    addTransaction({
-      type: p.type,
-      amount: p.amount,
-      category: p.category,
-      description: `${p.name} (Recurring Payment)`,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      paymentMethod: 'bank_transfer',
-      accountId: acc?.id || '',
-    });
-
-    const advancedDate = getNextOccurrence(p.nextDate, p.frequency);
-    updateRecurringPayment(p.id, { nextDate: advancedDate });
-    showToast(`Logged ${p.name} (${formatCurrency(p.amount, symbol)}) & advanced due date`);
+    const success = markRecurringPaymentPaid(p.id, p.nextDate);
+    if (success) {
+      showToast(`Logged ${p.name} (${formatCurrency(p.amount, symbol)}) & advanced due date`);
+    } else {
+      showToast(`${p.name} has already been logged for this billing cycle`);
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -204,6 +199,8 @@ export default function RecurringPayments() {
       return;
     }
 
+    const originalDay = parseISO(nextDate).getDate();
+
     const payload = {
       name: name.trim(),
       amount: parsedAmount,
@@ -211,6 +208,8 @@ export default function RecurringPayments() {
       category,
       frequency,
       nextDate,
+      nextDueDate: nextDate,
+      originalBillingDay: originalDay,
       accountId: accountId || accounts[0]?.id || '',
       isActive: editing ? editing.isActive : true,
     };
@@ -397,8 +396,26 @@ export default function RecurringPayments() {
                       </div>
                     </div>
 
-                    {/* Active Switch */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Card actions: edit, delete, active switch */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        aria-label={`Edit ${p.name}`}
+                        title="Edit obligation"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(p)}
+                        aria-label={`Delete ${p.name}`}
+                        title="Delete obligation"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                       <button
                         type="button"
                         role="switch"
@@ -700,6 +717,55 @@ export default function RecurringPayments() {
             </button>
           </div>
         </form>
+      </BottomSheet>
+
+      {/* Delete Confirmation Sheet */}
+      <BottomSheet
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Obligation"
+      >
+        {deleteTarget && (
+          <div className="space-y-5 pb-2">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  Delete “{deleteTarget.name}”?
+                </p>
+                <p className="text-[13px] text-gray-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  This will permanently remove the recurring obligation
+                  {deleteTarget.isActive ? ' and stop future reminders' : ''}. Past transactions
+                  already logged will not be affected.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 min-h-[48px] rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 font-semibold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteRecurringPayment(deleteTarget.id);
+                  showToast(`Deleted ${deleteTarget.name}`);
+                  setDeleteTarget(null);
+                }}
+                className="flex-1 min-h-[48px] rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white font-semibold shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <Trash2 size={16} />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        )}
       </BottomSheet>
     </div>
   );

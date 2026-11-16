@@ -10,6 +10,16 @@ import type {
 import { dataService } from '@/lib/dataService';
 import { supabase, type User } from '@/lib/supabase';
 import { generateId, getCurrentMonth } from '@/lib/utils';
+import { roundCurrency } from '@/lib/finance/money';
+import {
+  isLiabilityAccount,
+  applyTransactionToAccount,
+  revertTransactionFromAccount,
+} from '@/lib/finance/accountCalculations';
+import {
+  getNextOccurrenceWithDayPreservation,
+  generateCycleOccurrenceId,
+} from '@/lib/finance/recurringCalculations';
 
 export type SyncState = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
 
@@ -55,6 +65,33 @@ interface AppState {
   addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'>) => void;
   updateTransaction: (id: string, data: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
+  transferBetweenAccounts: (params: {
+    sourceAccountId: string;
+    destinationAccountId: string;
+    amount: number;
+    date?: string;
+    description?: string;
+  }) => void;
+  repayCreditCard: (params: {
+    checkingAccountId: string;
+    creditCardAccountId: string;
+    amount: number;
+    date?: string;
+    description?: string;
+  }) => void;
+  addSavingsGoalContribution: (params: {
+    goalId: string;
+    amount: number;
+    sourceAccountId: string;
+    date?: string;
+  }) => void;
+  withdrawSavingsGoalFunds: (params: {
+    goalId: string;
+    amount: number;
+    destinationAccountId: string;
+    date?: string;
+  }) => void;
+  markRecurringPaymentPaid: (id: string, date?: string) => boolean;
 
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateBudget: (id: string, data: Partial<Budget>) => void;
@@ -136,7 +173,7 @@ export const useStore = create<AppState>((set, get) => ({
   openEditTransaction: (tx) =>
     set({
       quickAddOpen: true,
-      quickAddDefaultType: tx.type,
+      quickAddDefaultType: tx.type === 'income' ? 'income' : 'expense',
       quickAddDate: tx.date,
       editingTransaction: tx,
     }),
@@ -271,13 +308,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // ---------------------------------------------------------------------------
-  // Transactions
+  // Transactions & Financial Engine Actions
   // ---------------------------------------------------------------------------
   addTransaction: (tx) => {
     const nowStr = new Date().toISOString();
     const isOnline = navigator.onLine;
+    const roundedAmount = roundCurrency(tx.amount);
     const newTx: Transaction = {
       ...tx,
+      amount: roundedAmount,
       id: generateId(),
       createdAt: nowStr,
       updatedAt: nowStr,
@@ -286,17 +325,17 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((state) => {
       const transactions = [newTx, ...state.transactions];
+      let updatedAccount: Account | null = null;
       const accounts = state.accounts.map((acc) => {
         if (acc.id !== tx.accountId) return acc;
-        const delta = tx.type === 'income' ? tx.amount : -tx.amount;
-        return { ...acc, balance: acc.balance + delta };
+        updatedAccount = applyTransactionToAccount(acc, newTx);
+        return updatedAccount;
       });
 
       const syncPending = isOnline ? state.syncPending : state.syncPending + 1;
       const newState = { ...state, transactions, accounts };
       persistLocal(newState);
 
-      // Save directly to Supabase
       if (isOnline) {
         dataService.saveTransactionRemote(newTx, state.user?.id || null).catch((err) => {
           console.error('Remote transaction save failed, queuing offline:', err);
@@ -308,6 +347,9 @@ export const useStore = create<AppState>((set, get) => ({
             timestamp: nowStr,
           });
         });
+        if (updatedAccount) {
+          dataService.saveAccountRemote(updatedAccount, state.user?.id || null).catch(console.error);
+        }
       } else {
         dataService.addToOfflineQueue({
           id: generateId(),
@@ -316,6 +358,15 @@ export const useStore = create<AppState>((set, get) => ({
           data: newTx as unknown as Record<string, unknown>,
           timestamp: nowStr,
         });
+        if (updatedAccount) {
+          dataService.addToOfflineQueue({
+            id: generateId(),
+            action: 'update',
+            table: 'accounts',
+            data: updatedAccount as unknown as Record<string, unknown>,
+            timestamp: nowStr,
+          });
+        }
       }
 
       return {
@@ -331,39 +382,462 @@ export const useStore = create<AppState>((set, get) => ({
     const nowStr = new Date().toISOString();
     const isOnline = navigator.onLine;
     set((state) => {
-      let updatedTx: Transaction | null = null;
-      const transactions = state.transactions.map((t) => {
-        if (t.id === id) {
-          updatedTx = { ...t, ...data, updatedAt: nowStr };
-          return updatedTx;
+      const oldTx = state.transactions.find((t) => t.id === id);
+      if (!oldTx) return state;
+
+      const updatedTx: Transaction = {
+        ...oldTx,
+        ...data,
+        amount: data.amount !== undefined ? roundCurrency(data.amount) : oldTx.amount,
+        updatedAt: nowStr,
+      };
+
+      const transactions = state.transactions.map((t) => (t.id === id ? updatedTx : t));
+
+      // Update account balance based on delta
+      const touchedAccounts: Account[] = [];
+      const accounts = state.accounts.map((acc) => {
+        // Case A: Transaction stays on same account
+        if (oldTx.accountId === updatedTx.accountId) {
+          if (acc.id === updatedTx.accountId) {
+            const reverted = revertTransactionFromAccount(acc, oldTx);
+            const finalAcc = applyTransactionToAccount(reverted, updatedTx);
+            touchedAccounts.push(finalAcc);
+            return finalAcc;
+          }
+          return acc;
         }
-        return t;
+
+        // Case B: Transaction moved from old account to a new account
+        if (acc.id === oldTx.accountId) {
+          const restored = revertTransactionFromAccount(acc, oldTx);
+          touchedAccounts.push(restored);
+          return restored;
+        }
+        if (acc.id === updatedTx.accountId) {
+          const debited = applyTransactionToAccount(acc, updatedTx);
+          touchedAccounts.push(debited);
+          return debited;
+        }
+        return acc;
       });
 
-      const newState = { ...state, transactions };
+      const newState = { ...state, transactions, accounts };
       persistLocal(newState);
 
-      if (updatedTx && isOnline) {
+      if (isOnline) {
         dataService.saveTransactionRemote(updatedTx, state.user?.id || null).catch(console.error);
+        for (const acc of touchedAccounts) {
+          dataService.saveAccountRemote(acc, state.user?.id || null).catch(console.error);
+        }
       }
 
-      return { transactions };
+      return { transactions, accounts };
     });
   },
 
   deleteTransaction: (id) => {
     const isOnline = navigator.onLine;
     set((state) => {
-      const transactions = state.transactions.filter((t) => t.id !== id);
-      const newState = { ...state, transactions };
+      const targetTx = state.transactions.find((t) => t.id === id);
+      if (!targetTx) return state;
+
+      // Handle linked transfer deletion atomically
+      const txsToDelete = targetTx.transferId
+        ? state.transactions.filter((t) => t.transferId === targetTx.transferId)
+        : [targetTx];
+
+      const deleteIds = new Set(txsToDelete.map((t) => t.id));
+      const transactions = state.transactions.filter((t) => !deleteIds.has(t.id));
+
+      const touchedAccounts: Account[] = [];
+      const accounts = state.accounts.map((acc) => {
+        const matchingTxs = txsToDelete.filter((t) => t.accountId === acc.id);
+        if (matchingTxs.length === 0) return acc;
+
+        let restoredAcc = acc;
+        for (const mTx of matchingTxs) {
+          restoredAcc = revertTransactionFromAccount(restoredAcc, mTx);
+        }
+        touchedAccounts.push(restoredAcc);
+        return restoredAcc;
+      });
+
+      const newState = { ...state, transactions, accounts };
       persistLocal(newState);
 
       if (isOnline) {
-        dataService.deleteTransactionRemote(id).catch(console.error);
+        for (const delTx of txsToDelete) {
+          dataService.deleteTransactionRemote(delTx.id).catch(console.error);
+        }
+        for (const acc of touchedAccounts) {
+          dataService.saveAccountRemote(acc, state.user?.id || null).catch(console.error);
+        }
       }
 
-      return { transactions };
+      return { transactions, accounts };
     });
+  },
+
+  transferBetweenAccounts: (params) => {
+    const nowStr = new Date().toISOString();
+    const isOnline = navigator.onLine;
+    const transferId = generateId();
+    const amount = roundCurrency(params.amount);
+    const date = params.date || new Date().toISOString().split('T')[0];
+
+    set((state) => {
+      const sourceAcc = state.accounts.find((a) => a.id === params.sourceAccountId);
+      const destAcc = state.accounts.find((a) => a.id === params.destinationAccountId);
+      if (!sourceAcc || !destAcc) return state;
+
+      const sourceTx: Transaction = {
+        id: generateId(),
+        type: 'transfer',
+        amount,
+        category: 'transfer',
+        description: params.description || `Transfer to ${destAcc.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.sourceAccountId,
+        destinationAccountId: params.destinationAccountId,
+        transferId,
+        transferRole: 'source',
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      const destTx: Transaction = {
+        id: generateId(),
+        type: 'transfer',
+        amount,
+        category: 'transfer',
+        description: params.description || `Transfer from ${sourceAcc.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.destinationAccountId,
+        destinationAccountId: params.sourceAccountId,
+        transferId,
+        transferRole: 'destination',
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      let updatedSource: Account;
+      if (isLiabilityAccount(sourceAcc.type)) {
+        updatedSource = { ...sourceAcc, balance: roundCurrency(sourceAcc.balance + amount) };
+      } else {
+        updatedSource = { ...sourceAcc, balance: roundCurrency(sourceAcc.balance - amount) };
+      }
+
+      let updatedDest: Account;
+      if (isLiabilityAccount(destAcc.type)) {
+        updatedDest = { ...destAcc, balance: roundCurrency(destAcc.balance - amount) };
+      } else {
+        updatedDest = { ...destAcc, balance: roundCurrency(destAcc.balance + amount) };
+      }
+
+      const transactions = [sourceTx, destTx, ...state.transactions];
+      const accounts = state.accounts.map((acc) => {
+        if (acc.id === updatedSource.id) return updatedSource;
+        if (acc.id === updatedDest.id) return updatedDest;
+        return acc;
+      });
+
+      const newState = { ...state, transactions, accounts };
+      persistLocal(newState);
+
+      if (isOnline) {
+        dataService
+          .executeTransferRemote({
+            sourceAccountId: params.sourceAccountId,
+            destAccountId: params.destinationAccountId,
+            amount,
+            date,
+            description: params.description || `Transfer to ${destAcc.name}`,
+            transferId,
+            sourceTxId: sourceTx.id,
+            destTxId: destTx.id,
+            sourceTx,
+            destTx,
+            sourceAccount: updatedSource,
+            destAccount: updatedDest,
+            userId: state.user?.id || null,
+          })
+          .catch(console.error);
+      }
+
+      return { transactions, accounts };
+    });
+  },
+
+  repayCreditCard: (params) => {
+    const nowStr = new Date().toISOString();
+    const isOnline = navigator.onLine;
+    const transferId = generateId();
+    const amount = roundCurrency(params.amount);
+    const date = params.date || new Date().toISOString().split('T')[0];
+
+    set((state) => {
+      const checkingAcc = state.accounts.find((a) => a.id === params.checkingAccountId);
+      const creditAcc = state.accounts.find((a) => a.id === params.creditCardAccountId);
+      if (!checkingAcc || !creditAcc) return state;
+
+      const paymentTx: Transaction = {
+        id: generateId(),
+        type: 'payment',
+        amount,
+        category: 'cc_payment',
+        description: params.description || `Payment to ${creditAcc.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.checkingAccountId,
+        destinationAccountId: params.creditCardAccountId,
+        transferId,
+        transferRole: 'source',
+        isRepayment: true,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      const creditLegTx: Transaction = {
+        id: generateId(),
+        type: 'payment',
+        amount,
+        category: 'cc_payment',
+        description: params.description || `Payment from ${checkingAcc.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.creditCardAccountId,
+        destinationAccountId: params.checkingAccountId,
+        transferId,
+        transferRole: 'destination',
+        isRepayment: true,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      const updatedChecking: Account = {
+        ...checkingAcc,
+        balance: roundCurrency(checkingAcc.balance - amount),
+      };
+
+      const updatedCredit: Account = {
+        ...creditAcc,
+        balance: roundCurrency(creditAcc.balance - amount),
+      };
+
+      const transactions = [paymentTx, creditLegTx, ...state.transactions];
+      const accounts = state.accounts.map((acc) => {
+        if (acc.id === updatedChecking.id) return updatedChecking;
+        if (acc.id === updatedCredit.id) return updatedCredit;
+        return acc;
+      });
+
+      const newState = { ...state, transactions, accounts };
+      persistLocal(newState);
+
+      if (isOnline) {
+        dataService
+          .repayCreditCardRemote({
+            checkingAccountId: params.checkingAccountId,
+            creditCardAccountId: params.creditCardAccountId,
+            amount,
+            date,
+            description: params.description || `Payment to ${creditAcc.name}`,
+            transferId,
+            paymentTxId: paymentTx.id,
+            creditTxId: creditLegTx.id,
+            paymentTx,
+            creditTx: creditLegTx,
+            checkingAccount: updatedChecking,
+            creditAccount: updatedCredit,
+            userId: state.user?.id || null,
+          })
+          .catch(console.error);
+      }
+
+      return { transactions, accounts };
+    });
+  },
+
+  addSavingsGoalContribution: (params) => {
+    const nowStr = new Date().toISOString();
+    const isOnline = navigator.onLine;
+    const amount = roundCurrency(params.amount);
+    const date = params.date || new Date().toISOString().split('T')[0];
+
+    set((state) => {
+      const goal = state.savingsGoals.find((g) => g.id === params.goalId);
+      const sourceAcc = state.accounts.find((a) => a.id === params.sourceAccountId);
+      if (!goal || !sourceAcc) return state;
+
+      const updatedGoal: SavingsGoal = {
+        ...goal,
+        currentAmount: roundCurrency(goal.currentAmount + amount),
+      };
+
+      const contributionTx: Transaction = {
+        id: generateId(),
+        type: 'transfer',
+        amount,
+        category: 'savings',
+        description: `Deposit to savings goal: ${goal.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.sourceAccountId,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      const updatedAcc = applyTransactionToAccount(sourceAcc, { type: 'expense', amount });
+
+      const savingsGoals = state.savingsGoals.map((g) => (g.id === goal.id ? updatedGoal : g));
+      const accounts = state.accounts.map((a) => (a.id === sourceAcc.id ? updatedAcc : a));
+      const transactions = [contributionTx, ...state.transactions];
+
+      const newState = { ...state, savingsGoals, accounts, transactions };
+      persistLocal(newState);
+
+      if (isOnline) {
+        dataService.saveGoalRemote(updatedGoal, state.user?.id || null).catch(console.error);
+        dataService.saveAccountRemote(updatedAcc, state.user?.id || null).catch(console.error);
+        dataService.saveTransactionRemote(contributionTx, state.user?.id || null).catch(console.error);
+      }
+
+      return { savingsGoals, accounts, transactions };
+    });
+  },
+
+  withdrawSavingsGoalFunds: (params) => {
+    const nowStr = new Date().toISOString();
+    const isOnline = navigator.onLine;
+    const amount = roundCurrency(params.amount);
+    const date = params.date || new Date().toISOString().split('T')[0];
+
+    set((state) => {
+      const goal = state.savingsGoals.find((g) => g.id === params.goalId);
+      const destAcc = state.accounts.find((a) => a.id === params.destinationAccountId);
+      if (!goal || !destAcc) return state;
+
+      const actualWithdraw = Math.min(goal.currentAmount, amount);
+      const updatedGoal: SavingsGoal = {
+        ...goal,
+        currentAmount: roundCurrency(Math.max(0, goal.currentAmount - actualWithdraw)),
+      };
+
+      const withdrawalTx: Transaction = {
+        id: generateId(),
+        type: 'transfer',
+        amount: actualWithdraw,
+        category: 'savings',
+        description: `Withdrawal from savings goal: ${goal.name}`,
+        date,
+        paymentMethod: 'bank_transfer',
+        accountId: params.destinationAccountId,
+        createdAt: nowStr,
+        updatedAt: nowStr,
+        syncStatus: isOnline ? 'synced' : 'pending',
+      };
+
+      const updatedAcc = applyTransactionToAccount(destAcc, { type: 'income', amount: actualWithdraw });
+
+      const savingsGoals = state.savingsGoals.map((g) => (g.id === goal.id ? updatedGoal : g));
+      const accounts = state.accounts.map((a) => (a.id === destAcc.id ? updatedAcc : a));
+      const transactions = [withdrawalTx, ...state.transactions];
+
+      const newState = { ...state, savingsGoals, accounts, transactions };
+      persistLocal(newState);
+
+      if (isOnline) {
+        dataService.saveGoalRemote(updatedGoal, state.user?.id || null).catch(console.error);
+        dataService.saveAccountRemote(updatedAcc, state.user?.id || null).catch(console.error);
+        dataService.saveTransactionRemote(withdrawalTx, state.user?.id || null).catch(console.error);
+      }
+
+      return { savingsGoals, accounts, transactions };
+    });
+  },
+
+  markRecurringPaymentPaid: (id, date) => {
+    const nowStr = new Date().toISOString();
+    const isOnline = navigator.onLine;
+    const state = get();
+    const p = state.recurringPayments.find((item) => item.id === id);
+    if (!p) return false;
+
+    // Idempotency: if no explicit date passed and payment was already logged, reject duplicate click
+    if (!date && p.lastLoggedCycleDate) {
+      return false;
+    }
+
+    const targetDate = date || p.nextDueDate || p.nextDate;
+    const occurrenceId = generateCycleOccurrenceId(p.id, targetDate);
+
+    // Idempotency check: prevent double logging for the same cycle
+    if (
+      p.lastLoggedCycleDate === targetDate ||
+      state.transactions.some((t) => t.recurringOccurrenceId === occurrenceId)
+    ) {
+      return false;
+    }
+
+    const targetDay = p.originalBillingDay || parseInt(targetDate.split('-')[2], 10) || 1;
+    const nextDueDate = getNextOccurrenceWithDayPreservation(targetDate, p.frequency, targetDay);
+
+    const tx: Transaction = {
+      id: generateId(),
+      type: p.type,
+      amount: roundCurrency(p.amount),
+      category: p.category,
+      description: p.name,
+      date: targetDate,
+      paymentMethod: 'upi',
+      accountId: p.accountId,
+      recurringOccurrenceId: occurrenceId,
+      createdAt: nowStr,
+      updatedAt: nowStr,
+      syncStatus: isOnline ? 'synced' : 'pending',
+    };
+
+    const updatedPayment: RecurringPayment = {
+      ...p,
+      nextDate: nextDueDate,
+      nextDueDate: nextDueDate,
+      originalBillingDay: targetDay,
+      lastLoggedCycleDate: targetDate,
+    };
+
+    let updatedAccount: Account | null = null;
+    const accounts = state.accounts.map((acc) => {
+      if (acc.id !== p.accountId) return acc;
+      updatedAccount = applyTransactionToAccount(acc, tx);
+      return updatedAccount;
+    });
+
+    const transactions = [tx, ...state.transactions];
+    const recurringPayments = state.recurringPayments.map((item) =>
+      item.id === id ? updatedPayment : item
+    );
+
+    const newState = { ...state, transactions, accounts, recurringPayments };
+    persistLocal(newState);
+
+    if (isOnline) {
+      dataService.saveTransactionRemote(tx, state.user?.id || null).catch(console.error);
+      dataService.saveRecurringRemote(updatedPayment, state.user?.id || null).catch(console.error);
+      if (updatedAccount) {
+        dataService.saveAccountRemote(updatedAccount, state.user?.id || null).catch(console.error);
+      }
+    }
+
+    set({ transactions, accounts, recurringPayments });
+    return true;
   },
 
   // ---------------------------------------------------------------------------
@@ -431,7 +905,8 @@ export const useStore = create<AppState>((set, get) => ({
   // ---------------------------------------------------------------------------
   addAccount: (account) => {
     const isOnline = navigator.onLine;
-    const newAccount: Account = { ...account, id: generateId() };
+    const initialBalance = account.initialBalance ?? roundCurrency(account.balance);
+    const newAccount: Account = { ...account, id: generateId(), initialBalance };
     set((state) => {
       const accounts = [...state.accounts, newAccount];
       persistLocal({ ...state, accounts });

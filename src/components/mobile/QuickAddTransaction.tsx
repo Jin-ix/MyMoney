@@ -36,7 +36,7 @@ export default function QuickAddTransaction() {
   useEffect(() => {
     if (isOpen) {
       if (editingTransaction) {
-        setType(editingTransaction.type);
+        setType(editingTransaction.type === 'income' ? 'income' : 'expense');
         setAmount(String(editingTransaction.amount));
         setCategory(editingTransaction.category);
         setPaymentMethod(editingTransaction.paymentMethod);

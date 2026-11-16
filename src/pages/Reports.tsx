@@ -43,6 +43,7 @@ import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { getCategoryById } from '@/lib/categories';
 import { formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useBreakpoint';
+import { calculateCashFlow, isInternalTransfer } from '@/lib/finance/cashFlow';
 import type { ViewPeriod } from '@/types';
 
 export default function Reports() {
@@ -86,15 +87,14 @@ export default function Reports() {
   }, [transactions, intervalStart, intervalEnd]);
 
   const summary = useMemo(() => {
-    const income = periodTransactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const expenses = periodTransactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const net = income - expenses;
-    const savingsRate = income > 0 ? Math.round((net / income) * 100) : 0;
-    return { income, expenses, net, savingsRate };
+    const cf = calculateCashFlow(periodTransactions);
+    return {
+      income: cf.operatingIncome,
+      expenses: cf.operatingExpenses,
+      net: cf.netCashFlow,
+      savingsRate: cf.savingsRate ?? 0,
+      transferVolume: cf.transferVolume,
+    };
   }, [periodTransactions]);
 
   const barData = useMemo(() => {
@@ -103,7 +103,9 @@ export default function Reports() {
       return months.map((m) => {
         const key = format(m, 'yyyy-MM');
         const label = format(m, 'MMM');
-        const monthTxs = periodTransactions.filter((t) => t.date.startsWith(key));
+        const monthTxs = periodTransactions.filter(
+          (t) => t.date.startsWith(key) && !isInternalTransfer(t)
+        );
         const income = monthTxs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expenses = monthTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         return { label, income, expenses };
@@ -114,7 +116,9 @@ export default function Reports() {
     return days.map((d) => {
       const key = format(d, 'yyyy-MM-dd');
       const label = period === 'weekly' ? format(d, 'EEE') : format(d, 'd');
-      const dayTxs = periodTransactions.filter((t) => t.date === key);
+      const dayTxs = periodTransactions.filter(
+        (t) => t.date === key && !isInternalTransfer(t)
+      );
       const income = dayTxs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
       const expenses = dayTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
       return { label, income, expenses };
@@ -132,7 +136,7 @@ export default function Reports() {
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, number>();
     periodTransactions
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' && !isInternalTransfer(t))
       .forEach((t) => {
         map.set(t.category, (map.get(t.category) ?? 0) + t.amount);
       });
@@ -154,10 +158,10 @@ export default function Reports() {
       .sort((a, b) => b.value - a.value);
   }, [periodTransactions]);
 
-  // Top 5 largest expenses in period
+  // Top 5 largest expenses in period (excluding internal transfers)
   const topExpenses = useMemo(() => {
     return periodTransactions
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' && !isInternalTransfer(t))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
   }, [periodTransactions]);

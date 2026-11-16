@@ -2,13 +2,18 @@
 
 export interface Transaction {
   id: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer' | 'payment';
   amount: number;
   category: string;
   description: string;
   date: string;
   paymentMethod: string;
   accountId: string;
+  destinationAccountId?: string;
+  transferId?: string;
+  transferRole?: 'source' | 'destination';
+  isRepayment?: boolean;
+  recurringOccurrenceId?: string;
   createdAt: string;
   updatedAt: string;
   syncStatus: 'synced' | 'pending' | 'error';
@@ -29,6 +34,7 @@ export interface Account {
   name: string;
   type: 'checking' | 'savings' | 'credit' | 'cash' | 'investment';
   balance: number;
+  initialBalance?: number;
   currency: string;
   color: string;
   icon: string;
@@ -42,6 +48,7 @@ export interface SavingsGoal {
   deadline: string;
   color: string;
   icon: string;
+  sourceAccountId?: string;
 }
 
 export interface RecurringPayment {
@@ -51,9 +58,12 @@ export interface RecurringPayment {
   category: string;
   frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
   nextDate: string;
+  nextDueDate?: string;
   type: 'income' | 'expense';
   accountId: string;
   isActive: boolean;
+  originalBillingDay?: number;
+  lastLoggedCycleDate?: string;
 }
 
 export interface CategoryConfig {

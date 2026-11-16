@@ -19,6 +19,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { Select } from '@/components/ui/Select';
 import { formatCurrency } from '@/lib/utils';
+import { calculateNetWorth } from '@/lib/finance/netWorth';
 import type { Account } from '@/types';
 
 const ACCOUNT_TYPES: Array<{ value: Account['type']; label: string; icon: string }> = [
@@ -45,7 +46,8 @@ export default function Accounts() {
   const addAccount = useStore((s) => s.addAccount);
   const updateAccount = useStore((s) => s.updateAccount);
   const deleteAccount = useStore((s) => s.deleteAccount);
-  const addTransaction = useStore((s) => s.addTransaction);
+  const transferBetweenAccounts = useStore((s) => s.transferBetweenAccounts);
+  const repayCreditCard = useStore((s) => s.repayCreditCard);
   const showToast = useStore((s) => s.showToast);
   const settings = useStore((s) => s.settings);
   const symbol = settings.currencySymbol;
@@ -68,33 +70,18 @@ export default function Accounts() {
   // Filter accounts view
   const [filterType, setFilterType] = useState<'all' | 'assets' | 'liabilities'>('all');
 
-  // Strict Wealth Accounting
+  // Strict Wealth Accounting via Finance Engine
+  const { totalAssets, totalLiabilities, netWorth, liquidBalance } = useMemo(
+    () => calculateNetWorth(accounts),
+    [accounts]
+  );
+
   const assets = useMemo(
     () => accounts.filter((a) => a.type !== 'credit'),
     [accounts]
   );
   const liabilities = useMemo(
     () => accounts.filter((a) => a.type === 'credit'),
-    [accounts]
-  );
-
-  const totalAssets = useMemo(
-    () => assets.reduce((sum, a) => sum + Math.max(0, a.balance), 0),
-    [assets]
-  );
-
-  const totalLiabilities = useMemo(
-    () => liabilities.reduce((sum, a) => sum + Math.abs(a.balance), 0),
-    [liabilities]
-  );
-
-  const netWorth = totalAssets - totalLiabilities;
-
-  const liquidBalance = useMemo(
-    () =>
-      accounts
-        .filter((a) => a.type === 'checking' || a.type === 'savings' || a.type === 'cash')
-        .reduce((sum, a) => sum + Math.max(0, a.balance), 0),
     [accounts]
   );
 
@@ -182,22 +169,24 @@ export default function Accounts() {
     const destAcc = accounts.find((a) => a.id === transferTo);
     if (!sourceAcc || !destAcc) return;
 
-    // Update both account balances
-    updateAccount(sourceAcc.id, { balance: sourceAcc.balance - amt });
-    updateAccount(destAcc.id, { balance: destAcc.balance + amt });
+    if (destAcc.type === 'credit') {
+      // Balanced credit card repayment
+      repayCreditCard({
+        checkingAccountId: sourceAcc.id,
+        creditCardAccountId: destAcc.id,
+        amount: amt,
+      });
+      showToast(`Repaid ${formatCurrency(amt, symbol)} toward ${destAcc.name}`);
+    } else {
+      // Balanced inter-account transfer
+      transferBetweenAccounts({
+        sourceAccountId: sourceAcc.id,
+        destinationAccountId: destAcc.id,
+        amount: amt,
+      });
+      showToast(`Transferred ${formatCurrency(amt, symbol)} from ${sourceAcc.name} to ${destAcc.name}`);
+    }
 
-    // Log dual or transfer transaction for record keeping
-    addTransaction({
-      type: 'expense',
-      amount: amt,
-      category: 'transfer',
-      description: `Transfer to ${destAcc.name}`,
-      date: new Date().toISOString().split('T')[0],
-      paymentMethod: 'bank_transfer',
-      accountId: sourceAcc.id,
-    });
-
-    showToast(`Transferred ${formatCurrency(amt, symbol)} from ${sourceAcc.name} to ${destAcc.name}`);
     setIsTransferOpen(false);
   };
 

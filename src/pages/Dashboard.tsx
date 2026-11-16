@@ -55,6 +55,9 @@ import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { CardSkeleton, TransactionSkeleton, ChartSkeleton } from '@/components/ui/Skeleton';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryById, PAYMENT_METHODS } from '@/lib/categories';
 import { formatCurrency, formatShortDate, getGreeting, isInMonth, clampPercentage } from '@/lib/utils';
+import { calculateNetWorth } from '@/lib/finance/netWorth';
+import { calculateCashFlow, isInternalTransfer } from '@/lib/finance/cashFlow';
+import { calculateCategorySpent } from '@/lib/finance/budgetCalculations';
 import type { Transaction } from '@/types';
 
 const QUICK_CHIPS = [50, 100, 500, 1000];
@@ -95,50 +98,33 @@ export default function Dashboard() {
     [transactions, currentMonth]
   );
 
-  // Totals & counts
-  const { totalIncome, totalExpenses, incomeCount, expenseCount } = useMemo(() => {
-    return monthTransactions.reduce(
-      (acc, t) => {
-        if (t.type === 'income') {
-          acc.totalIncome += t.amount;
-          acc.incomeCount += 1;
-        } else {
-          acc.totalExpenses += t.amount;
-          acc.expenseCount += 1;
-        }
-        return acc;
-      },
-      { totalIncome: 0, totalExpenses: 0, incomeCount: 0, expenseCount: 0 }
-    );
+  // Totals & counts via Financial Engine (excluding non-operating transfers/repayments)
+  const { totalIncome, totalExpenses, incomeCount, expenseCount, netSavings, savingsRate } = useMemo(() => {
+    const cf = calculateCashFlow(monthTransactions);
+    let inCount = 0;
+    let expCount = 0;
+    for (const t of monthTransactions) {
+      if (isInternalTransfer(t)) continue;
+      if (t.type === 'income') inCount++;
+      else if (t.type === 'expense') expCount++;
+    }
+    return {
+      totalIncome: cf.operatingIncome,
+      totalExpenses: cf.operatingExpenses,
+      incomeCount: inCount,
+      expenseCount: expCount,
+      netSavings: cf.netCashFlow,
+      savingsRate: cf.savingsRate,
+    };
   }, [monthTransactions]);
-
-  const netSavings = totalIncome - totalExpenses;
-  const savingsRate = useMemo(() => {
-    if (totalIncome <= 0) return null;
-    return Math.round(((totalIncome - totalExpenses) / totalIncome) * 100);
-  }, [totalIncome, totalExpenses]);
 
   // Section B: Net Worth vs Assets vs Liabilities
   const { totalAssets, totalLiabilities, netWorth, liquidBalance } = useMemo(() => {
     if (accounts.length > 0) {
-      const assets = accounts
-        .filter((a) => a.type !== 'credit')
-        .reduce((sum, a) => sum + a.balance, 0);
-      const liabilities = accounts
-        .filter((a) => a.type === 'credit')
-        .reduce((sum, a) => sum + a.balance, 0);
-      const liquid = accounts
-        .filter((a) => a.type === 'checking' || a.type === 'savings' || a.type === 'cash')
-        .reduce((sum, a) => sum + a.balance, 0);
-      return {
-        totalAssets: assets,
-        totalLiabilities: liabilities,
-        netWorth: assets - liabilities,
-        liquidBalance: liquid,
-      };
+      return calculateNetWorth(accounts);
     }
     // Fallback if no account records exist
-    const net = transactions.reduce(
+    const net = monthTransactions.reduce(
       (sum, t) => (t.type === 'income' ? sum + t.amount : sum - t.amount),
       0
     );
@@ -147,17 +133,16 @@ export default function Dashboard() {
       totalLiabilities: net < 0 ? Math.abs(net) : 0,
       netWorth: net,
       liquidBalance: net,
+      debtToAssetRatio: 0,
     };
-  }, [accounts, transactions]);
+  }, [accounts, monthTransactions]);
 
-  // Budgets
+  // Budgets (with refund netting and transfer exclusion)
   const monthBudgets = useMemo(() => {
     return budgets
       .filter((b) => b.month === currentMonth)
       .map((b) => {
-        const spent = monthTransactions
-          .filter((t) => t.type === 'expense' && t.category === b.category)
-          .reduce((sum, t) => sum + t.amount, 0);
+        const spent = calculateCategorySpent(monthTransactions, b.category);
         return { ...b, spent };
       });
   }, [budgets, monthTransactions, currentMonth]);

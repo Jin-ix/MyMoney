@@ -76,6 +76,7 @@ function mapAccountFromDb(row: any): Account {
     name: row.name,
     type: row.type,
     balance: Number(row.balance ?? 0),
+    initialBalance: Number(row.initial_balance ?? row.balance ?? 0),
     currency: row.currency ?? 'INR',
     color: row.color ?? '#10b981',
     icon: row.icon ?? 'Wallet',
@@ -89,6 +90,7 @@ function mapAccountToDb(account: Account, userId?: string | null) {
     name: account.name,
     type: account.type,
     balance: account.balance,
+    initial_balance: account.initialBalance ?? account.balance,
     currency: account.currency,
     color: account.color,
     icon: account.icon,
@@ -105,6 +107,11 @@ function mapTxFromDb(row: any): Transaction {
     date: row.date,
     paymentMethod: row.payment_method ?? 'cash',
     accountId: row.account_id ?? '',
+    destinationAccountId: row.destination_account_id ?? undefined,
+    transferId: row.transfer_id ?? undefined,
+    transferRole: row.transfer_role ?? undefined,
+    isRepayment: row.is_repayment ?? undefined,
+    recurringOccurrenceId: row.recurring_occurrence_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     syncStatus: 'synced',
@@ -112,7 +119,7 @@ function mapTxFromDb(row: any): Transaction {
 }
 
 function mapTxToDb(tx: Transaction, userId?: string | null) {
-  return {
+  const base: Record<string, unknown> = {
     id: ensureUuid(tx.id),
     user_id: ensureNullableUuid(userId),
     account_id: ensureNullableUuid(tx.accountId),
@@ -124,6 +131,24 @@ function mapTxToDb(tx: Transaction, userId?: string | null) {
     payment_method: tx.paymentMethod,
     sync_status: 'synced',
   };
+
+  if (tx.destinationAccountId && isValidUuid(tx.destinationAccountId)) {
+    base.destination_account_id = tx.destinationAccountId;
+  }
+  if (tx.transferId && isValidUuid(tx.transferId)) {
+    base.transfer_id = tx.transferId;
+  }
+  if (tx.transferRole) {
+    base.transfer_role = tx.transferRole;
+  }
+  if (typeof tx.isRepayment === 'boolean') {
+    base.is_repayment = tx.isRepayment;
+  }
+  if (tx.recurringOccurrenceId) {
+    base.recurring_occurrence_id = tx.recurringOccurrenceId;
+  }
+
+  return base;
 }
 
 function mapBudgetFromDb(row: any): Budget {
@@ -353,6 +378,95 @@ export const dataService = {
       console.error('Supabase deleteTransactionRemote error:', error);
       throw error;
     }
+  },
+
+  // Atomic Transfers via RPC with graceful fallback
+  async executeTransferRemote(params: {
+    sourceAccountId: string;
+    destAccountId: string;
+    amount: number;
+    date: string;
+    description: string;
+    transferId: string;
+    sourceTxId: string;
+    destTxId: string;
+    sourceTx: Transaction;
+    destTx: Transaction;
+    sourceAccount: Account;
+    destAccount: Account;
+    userId?: string | null;
+  }) {
+    if (!supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { data, error } = await supabase.rpc('execute_transfer_atomic', {
+        p_source_account_id: params.sourceAccountId,
+        p_dest_account_id: params.destAccountId,
+        p_amount: params.amount,
+        p_date: params.date,
+        p_description: params.description,
+        p_transfer_id: params.transferId,
+        p_source_tx_id: params.sourceTxId,
+        p_dest_tx_id: params.destTxId,
+      });
+
+      if (!error && data?.success) {
+        return data;
+      }
+    } catch {
+      // Fallback if RPC not deployed
+    }
+
+    await Promise.all([
+      this.saveTransactionRemote(params.sourceTx, params.userId),
+      this.saveTransactionRemote(params.destTx, params.userId),
+      this.saveAccountRemote(params.sourceAccount, params.userId),
+      this.saveAccountRemote(params.destAccount, params.userId),
+    ]);
+  },
+
+  async repayCreditCardRemote(params: {
+    checkingAccountId: string;
+    creditCardAccountId: string;
+    amount: number;
+    date: string;
+    description: string;
+    transferId: string;
+    paymentTxId: string;
+    creditTxId: string;
+    paymentTx: Transaction;
+    creditTx: Transaction;
+    checkingAccount: Account;
+    creditAccount: Account;
+    userId?: string | null;
+  }) {
+    if (!supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { data, error } = await supabase.rpc('repay_credit_card_atomic', {
+        p_checking_account_id: params.checkingAccountId,
+        p_credit_card_account_id: params.creditCardAccountId,
+        p_amount: params.amount,
+        p_date: params.date,
+        p_description: params.description,
+        p_transfer_id: params.transferId,
+        p_payment_tx_id: params.paymentTxId,
+        p_credit_tx_id: params.creditTxId,
+      });
+
+      if (!error && data?.success) {
+        return data;
+      }
+    } catch {
+      // Fallback if RPC not deployed
+    }
+
+    await Promise.all([
+      this.saveTransactionRemote(params.paymentTx, params.userId),
+      this.saveTransactionRemote(params.creditTx, params.userId),
+      this.saveAccountRemote(params.checkingAccount, params.userId),
+      this.saveAccountRemote(params.creditAccount, params.userId),
+    ]);
   },
 
   // Accounts

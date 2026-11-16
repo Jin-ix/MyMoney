@@ -2,6 +2,8 @@ import { format, subDays, getDaysInMonth, getDate, parseISO } from 'date-fns';
 import type { Transaction, Budget, Account, SavingsGoal, RecurringPayment, UserSettings } from '@/types';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, getCategoryById } from '@/lib/categories';
 import { formatCurrency, isInMonth } from '@/lib/utils';
+import { calculateNetWorth } from '@/lib/finance/netWorth';
+import { calculateCashFlow, isInternalTransfer } from '@/lib/finance/cashFlow';
 
 export interface ChatMessage {
   id: string;
@@ -276,20 +278,14 @@ export function generateLocalBotResponse(
   const monthTransactions = context.transactions.filter(
     (t) => isInMonth(t.date, currentMonth)
   );
-  const totalIncome = monthTransactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = monthTransactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const netSavings = totalIncome - totalExpenses;
+  const cashFlow = calculateCashFlow(monthTransactions);
+  const totalIncome = cashFlow.operatingIncome;
+  const totalExpenses = cashFlow.operatingExpenses;
+  const netSavings = cashFlow.netCashFlow;
 
-  const netBalance = context.accounts.length > 0
-    ? context.accounts.reduce((sum, a) => sum + a.balance, 0)
-    : context.transactions.reduce(
-        (sum, t) => (t.type === 'income' ? sum + t.amount : sum - t.amount),
-        0
-      );
+  const nw = calculateNetWorth(context.accounts);
+  const liquidBalance = nw.liquidBalance;
+  const totalNetWorth = nw.netWorth;
 
   // 2. Spending Summary / "How much did I spend" / "Month summary"
   if (
@@ -298,7 +294,7 @@ export function generateLocalBotResponse(
     !/\b(afford|can i buy)\b/i.test(lower)
   ) {
     const highestExpense = monthTransactions
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' && !isInternalTransfer(t))
       .sort((a, b) => b.amount - a.amount)[0];
 
     const highestText = highestExpense
@@ -307,30 +303,37 @@ export function generateLocalBotResponse(
 
     return {
       text: `Here is your financial summary for **${format(new Date(currentMonth + '-01'), 'MMMM yyyy')}**:\n\n` +
-        `• **Total Expenses**: ${formatCurrency(totalExpenses, symbol)}\n` +
-        `• **Total Income**: ${formatCurrency(totalIncome, symbol)}\n` +
+        `• **Operating Expenses**: ${formatCurrency(totalExpenses, symbol)}\n` +
+        `• **Operating Income**: ${formatCurrency(totalIncome, symbol)}\n` +
         `• **Net Cashflow**: ${totalIncome >= totalExpenses ? '🟢 +' : '🔴 -'}${formatCurrency(Math.abs(netSavings), symbol)}\n` +
-        `• **Total Liquid Balance**: ${formatCurrency(netBalance, symbol)}` +
+        `• **Liquid Spendable Cash**: ${formatCurrency(liquidBalance, symbol)}\n` +
+        `• **Total Net Worth**: ${formatCurrency(totalNetWorth, symbol)}` +
         highestText +
-        `\n\n${totalExpenses === 0 ? "You haven't logged any expenses yet this month." : totalExpenses > totalIncome && totalIncome > 0 ? "⚠️ You are currently spending more than your recorded income for this month." : "✨ Your savings rate is healthy this month!"}`,
+        `\n\n${totalExpenses === 0 ? "You haven't logged any operating expenses yet this month." : totalExpenses > totalIncome && totalIncome > 0 ? "⚠️ You are currently spending more than your recorded income for this month." : "✨ Your savings rate is healthy this month!"}`,
       metrics: [
         { title: 'Expenses', value: formatCurrency(totalExpenses, symbol), tone: 'negative' },
         { title: 'Income', value: formatCurrency(totalIncome, symbol), tone: 'positive' },
-        { title: 'Net Balance', value: formatCurrency(netBalance, symbol), tone: 'neutral' },
+        { title: 'Liquid Cash', value: formatCurrency(liquidBalance, symbol), tone: 'neutral' },
       ],
     };
   }
 
-  // 3. Balance Queries ("balance", "how much money do I have", "bank balance")
+  // 3. Balance Queries ("balance", "how much money do I have", "bank balance", "net worth")
   if (/\b(balance|net worth|how much (money|cash) do i have|accounts?)\b/i.test(lower)) {
     const accountsBreakdown = context.accounts.length > 0
       ? context.accounts.map((a) => `• **${a.name}** (${a.type}): ${formatCurrency(a.balance, symbol)}`).join('\n')
-      : `• Net Cashflow: ${formatCurrency(netBalance, symbol)}`;
+      : `• Net Cashflow: ${formatCurrency(liquidBalance, symbol)}`;
 
     return {
-      text: `Here is your current balance status:\n\n**Total Available Balance**: ${formatCurrency(netBalance, symbol)}\n\n**Account Breakdown**:\n${accountsBreakdown}\n\nAll accounts sync in real-time with your transactions and Supabase database.`,
+      text: `Here is your current wealth and balance status:\n\n` +
+        `• **Spendable Liquid Cash**: ${formatCurrency(liquidBalance, symbol)}\n` +
+        `• **Total Assets**: ${formatCurrency(nw.totalAssets, symbol)}\n` +
+        `• **Total Liabilities (Debt)**: ${formatCurrency(nw.totalLiabilities, symbol)}\n` +
+        `• **Net Worth**: ${formatCurrency(totalNetWorth, symbol)}\n\n` +
+        `**Account Breakdown**:\n${accountsBreakdown}\n\nAll accounts sync in real-time with your transactions and Supabase database.`,
       metrics: [
-        { title: 'Total Balance', value: formatCurrency(netBalance, symbol), tone: 'positive' },
+        { title: 'Liquid Cash', value: formatCurrency(liquidBalance, symbol), tone: 'positive' },
+        { title: 'Net Worth', value: formatCurrency(totalNetWorth, symbol), tone: 'neutral' },
       ],
     };
   }
@@ -373,15 +376,15 @@ export function generateLocalBotResponse(
     const targetAmt = affordMatch ? parseFloat(affordMatch[1].replace(/,/g, '')) : 0;
 
     if (targetAmt > 0) {
-      const remainingLiquid = netBalance - targetAmt;
+      const remainingLiquid = liquidBalance - targetAmt;
       const canAfford = remainingLiquid >= 0;
-      const safeBuffer = netBalance * 0.2; // 20% safety margin
+      const safeBuffer = liquidBalance * 0.2; // 20% safety margin
 
       let verdict = '';
       if (!canAfford) {
-        verdict = `❌ **Not recommended right now.** Buying this for ${formatCurrency(targetAmt, symbol)} would exceed your total available balance (${formatCurrency(netBalance, symbol)}) by ${formatCurrency(Math.abs(remainingLiquid), symbol)}.`;
+        verdict = `❌ **Not recommended right now.** Buying this for ${formatCurrency(targetAmt, symbol)} would exceed your spendable liquid balance (${formatCurrency(liquidBalance, symbol)}) by ${formatCurrency(Math.abs(remainingLiquid), symbol)}.`;
       } else if (remainingLiquid < safeBuffer) {
-        verdict = `⚠️ **Proceed with caution.** You have enough funds (${formatCurrency(netBalance, symbol)}), but this purchase leaves you with only ${formatCurrency(remainingLiquid, symbol)}, which is below a recommended emergency safety margin.`;
+        verdict = `⚠️ **Proceed with caution.** You have enough funds (${formatCurrency(liquidBalance, symbol)}), but this purchase leaves you with only ${formatCurrency(remainingLiquid, symbol)}, which is below a recommended emergency safety margin.`;
       } else {
         verdict = `✅ **Yes, you can comfortably afford this!** You will still have **${formatCurrency(remainingLiquid, symbol)}** remaining in your accounts.`;
       }
@@ -389,8 +392,8 @@ export function generateLocalBotResponse(
       return {
         text: `### Affordability Check for ${formatCurrency(targetAmt, symbol)}\n\n` +
           verdict +
-          `\n\n• Current Total Balance: **${formatCurrency(netBalance, symbol)}**\n` +
-          `• Post-purchase Balance: **${formatCurrency(remainingLiquid, symbol)}**\n` +
+          `\n\n• Current Liquid Cash: **${formatCurrency(liquidBalance, symbol)}**\n` +
+          `• Post-purchase Liquid Balance: **${formatCurrency(remainingLiquid, symbol)}**\n` +
           `• Total Expenses This Month: **${formatCurrency(totalExpenses, symbol)}**`,
       };
     }
@@ -440,7 +443,7 @@ export function generateLocalBotResponse(
       text: hypeMsg,
       metrics: [
         { title: 'Net Cashflow', value: formatCurrency(netSavings, symbol), tone: 'positive' },
-        { title: 'Liquid Wealth', value: formatCurrency(netBalance, symbol), tone: 'positive' },
+        { title: 'Liquid Wealth', value: formatCurrency(liquidBalance, symbol), tone: 'positive' },
       ],
     };
   }
@@ -564,23 +567,16 @@ export async function askGeminiAssistant(
 
   // Build condensed JSON financial state
   const monthTransactions = context.transactions.filter((t) => isInMonth(t.date, currentMonth));
-  const totalIncome = monthTransactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = monthTransactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const cfSnapshot = calculateCashFlow(monthTransactions);
+  const totalIncome = cfSnapshot.operatingIncome;
+  const totalExpenses = cfSnapshot.operatingExpenses;
 
-  const netBalance = context.accounts.length > 0
-    ? context.accounts.reduce((sum, a) => sum + a.balance, 0)
-    : context.transactions.reduce(
-        (sum, t) => (t.type === 'income' ? sum + t.amount : sum - t.amount),
-        0
-      );
+  const nwSnapshot = calculateNetWorth(context.accounts);
+  const netBalance = nwSnapshot.liquidBalance;
 
   const categoryTotals: Record<string, number> = {};
   monthTransactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === 'expense' && !isInternalTransfer(t))
     .forEach((t) => {
       categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
     });
@@ -590,6 +586,9 @@ export async function askGeminiAssistant(
     currentMonth,
     currencySymbol: symbol,
     totalLiquidBalance: netBalance,
+    totalNetWorth: nwSnapshot.netWorth,
+    totalAssets: nwSnapshot.totalAssets,
+    totalLiabilities: nwSnapshot.totalLiabilities,
     thisMonthIncome: totalIncome,
     thisMonthExpenses: totalExpenses,
     accounts: context.accounts.map((a) => ({ name: a.name, type: a.type, balance: a.balance })),
