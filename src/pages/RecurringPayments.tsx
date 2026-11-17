@@ -258,7 +258,7 @@ export default function RecurringPayments() {
               <Repeat size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(metrics.monthlyExpenses, symbol)}
             <span className="text-xs font-normal text-gray-500 dark:text-slate-400">/mo</span>
           </p>
@@ -274,7 +274,7 @@ export default function RecurringPayments() {
               <TrendingUp size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(metrics.annualExpenses, symbol)}
             <span className="text-xs font-normal text-gray-500 dark:text-slate-400">/yr</span>
           </p>

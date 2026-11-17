@@ -166,7 +166,7 @@ export default function SavingsGoals() {
               <PiggyBank size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-tabular truncate">
             {formatCurrency(metrics.totalSaved, symbol)}
           </p>
           <span className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 block">
@@ -181,7 +181,7 @@ export default function SavingsGoals() {
               <Target size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(metrics.totalTarget, symbol)}
           </p>
           <span className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 block">

@@ -228,13 +228,13 @@ export default function Accounts() {
 
       {/* Hero Net Worth Banner */}
       {accounts.length > 0 && (
-        <div className="hero-balance-card p-6 sm:p-7 relative overflow-hidden">
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="hero-balance-card p-4.5 sm:p-7 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-200">
                 Total Net Worth
               </span>
-              <p className="text-3xl sm:text-4xl font-extrabold text-white font-tabular mt-1">
+              <p className="text-2xl sm:text-4xl font-extrabold text-white font-tabular mt-1">
                 {netWorth < 0 ? '-' : ''}
                 {formatCurrency(Math.abs(netWorth), symbol)}
               </p>
@@ -244,22 +244,22 @@ export default function Accounts() {
             </div>
 
             {/* Breakdown Cards */}
-            <div className="grid grid-cols-3 gap-3 bg-white/10 dark:bg-black/20 backdrop-blur-md rounded-2xl p-3 border border-white/10">
-              <div className="px-3 py-1">
-                <span className="text-[11px] font-medium text-emerald-100 block">Total Assets</span>
-                <span className="text-sm sm:text-base font-bold text-white font-tabular block mt-0.5">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-white/10 dark:bg-black/20 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/10">
+              <div className="px-2 sm:px-3 py-1 min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-medium text-emerald-100 block truncate">Total Assets</span>
+                <span className="text-xs sm:text-base font-bold text-white font-tabular block mt-0.5 truncate">
                   {formatCurrency(totalAssets, symbol)}
                 </span>
               </div>
-              <div className="px-3 py-1 border-x border-white/15">
-                <span className="text-[11px] font-medium text-rose-200 block">Liabilities</span>
-                <span className="text-sm sm:text-base font-bold text-rose-200 font-tabular block mt-0.5">
+              <div className="px-2 sm:px-3 py-1 border-x border-white/15 min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-medium text-rose-200 block truncate">Liabilities</span>
+                <span className="text-xs sm:text-base font-bold text-rose-200 font-tabular block mt-0.5 truncate">
                   {totalLiabilities > 0 ? `-${formatCurrency(totalLiabilities, symbol)}` : '0'}
                 </span>
               </div>
-              <div className="px-3 py-1">
-                <span className="text-[11px] font-medium text-emerald-100 block">Liquid Cash</span>
-                <span className="text-sm sm:text-base font-bold text-white font-tabular block mt-0.5">
+              <div className="px-2 sm:px-3 py-1 min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-medium text-emerald-100 block truncate">Liquid Cash</span>
+                <span className="text-xs sm:text-base font-bold text-white font-tabular block mt-0.5 truncate">
                   {formatCurrency(liquidBalance, symbol)}
                 </span>
               </div>

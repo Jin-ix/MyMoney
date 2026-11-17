@@ -329,9 +329,9 @@ export default function Dashboard() {
       {/* SECTION B: NET WORTH & LIQUID ASSETS HERO ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Hero Card: Net Worth & Liquid Balance */}
-        <div className="lg:col-span-7 hero-balance-card text-white p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-7 hero-balance-card text-white p-4.5 sm:p-6 flex flex-col justify-between relative overflow-hidden">
           <div className="relative z-10">
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-xs border border-white/20">
                 <Shield size={14} className="text-emerald-200" />
                 <span className="text-xs font-bold tracking-wide">
@@ -349,46 +349,46 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <p className="text-3xl sm:text-4xl font-black tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-4xl font-black tracking-tight tabular-nums">
               {hideBalances
                 ? `${symbol} ••••••`
                 : `${netWorth < 0 ? '-' : ''}${formatCurrency(Math.abs(netWorth), symbol)}`}
             </p>
 
             {/* Assets vs Liabilities Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4 pt-4 border-t border-white/15 text-xs">
-              <div>
-                <span className="text-emerald-200 text-[11px] font-semibold block uppercase tracking-wider">
+            <div className="grid grid-cols-3 gap-2 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/15 text-xs">
+              <div className="min-w-0">
+                <span className="text-emerald-200 text-[10px] sm:text-[11px] font-semibold block uppercase tracking-wider truncate">
                   Total Assets
                 </span>
-                <span className="font-extrabold text-sm tabular-nums mt-0.5 block">
+                <span className="font-extrabold text-xs sm:text-sm tabular-nums mt-0.5 block truncate">
                   {maskValue(formatCurrency(totalAssets, symbol))}
                 </span>
               </div>
-              <div>
-                <span className="text-rose-200 text-[11px] font-semibold block uppercase tracking-wider">
-                  Liabilities (Cards)
+              <div className="min-w-0">
+                <span className="text-rose-200 text-[10px] sm:text-[11px] font-semibold block uppercase tracking-wider truncate">
+                  Liabilities
                 </span>
-                <span className="font-extrabold text-sm tabular-nums mt-0.5 block">
+                <span className="font-extrabold text-xs sm:text-sm tabular-nums mt-0.5 block truncate">
                   {maskValue(formatCurrency(totalLiabilities, symbol))}
                 </span>
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <span className="text-teal-200 text-[11px] font-semibold block uppercase tracking-wider">
+              <div className="min-w-0">
+                <span className="text-teal-200 text-[10px] sm:text-[11px] font-semibold block uppercase tracking-wider truncate">
                   Liquid Funds
                 </span>
-                <span className="font-extrabold text-sm tabular-nums mt-0.5 block">
+                <span className="font-extrabold text-xs sm:text-sm tabular-nums mt-0.5 block truncate">
                   {maskValue(formatCurrency(liquidBalance, symbol))}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="relative z-10 flex items-center gap-2 mt-5">
+          <div className="relative z-10 flex items-center gap-2 mt-4 sm:mt-5">
             <button
               type="button"
               onClick={() => openQuickAdd('expense')}
-              className="flex-1 min-h-[42px] px-3.5 rounded-xl bg-white !text-emerald-950 hover:bg-emerald-50 active:scale-[0.98] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 shadow-md shadow-black/15 transition-all cursor-pointer"
+              className="flex-1 min-h-[44px] px-3 rounded-xl bg-white !text-emerald-950 hover:bg-emerald-50 active:scale-[0.98] text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 shadow-md shadow-black/15 transition-all cursor-pointer"
             >
               <Plus size={16} strokeWidth={2.8} />
               <span>Log Expense</span>
@@ -396,7 +396,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => openQuickAdd('income')}
-              className="flex-1 min-h-[42px] px-3.5 rounded-xl bg-white/20 hover:bg-white/30 active:scale-[0.98] text-white border border-white/30 text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 backdrop-blur-xs transition-all cursor-pointer"
+              className="flex-1 min-h-[44px] px-3 rounded-xl bg-white/20 hover:bg-white/30 active:scale-[0.98] text-white border border-white/30 text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 backdrop-blur-xs transition-all cursor-pointer"
             >
               <Plus size={16} strokeWidth={2.4} />
               <span>Add Income</span>
@@ -545,29 +545,29 @@ export default function Dashboard() {
 
       {/* SECTION E: QUICK TRANSACTION ENTRY */}
       <section className="fintech-card p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-3.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Plus size={16} />
             </div>
-            <div>
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider truncate">
                 Quick Transaction Entry
               </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                 Log spending or income directly with instant balance reconciliation
               </p>
             </div>
           </div>
           {/* Income vs Expense Toggle */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold self-start sm:self-auto shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => {
                 setSpendType('expense');
                 setSpendCategory(EXPENSE_CATEGORIES[0].id);
               }}
-              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-center ${
                 spendType === 'expense'
                   ? 'bg-rose-500 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
@@ -581,7 +581,7 @@ export default function Dashboard() {
                 setSpendType('income');
                 setSpendCategory(INCOME_CATEGORIES[0].id);
               }}
-              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-center ${
                 spendType === 'income'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
@@ -707,7 +707,7 @@ export default function Dashboard() {
           <div className="flex justify-end pt-1">
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <Check size={16} />
               <span>{spendType === 'income' ? 'Save Income' : 'Save Expense'}</span>

@@ -275,23 +275,23 @@ export function AiChatbot() {
 
   return (
     <>
-      {/* 1. Floating AI Assistant Trigger Button */}
+      {/* 1. Floating AI Assistant Trigger Button (Responsive: compact FAB on mobile, pill on desktop) */}
       {!isOpen && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Open Artha AI Assistant"
-          className="fixed right-4 lg:right-6 z-30 flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-xl shadow-teal-600/30 active:scale-95 transition-all duration-300 ring-4 ring-white/80 dark:ring-slate-900/80 group cursor-pointer"
+          className="fixed right-3.5 sm:right-5 lg:right-6 z-30 flex items-center justify-center p-2.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-700/25 active:scale-95 transition-all duration-200 ring-2 sm:ring-4 ring-white/90 dark:ring-slate-900/90 group cursor-pointer"
           style={{
-            bottom: 'calc(var(--bottom-nav-height) + 82px + var(--safe-area-inset-bottom))',
+            bottom: 'calc(var(--bottom-nav-height) + 14px + var(--safe-area-inset-bottom))',
           }}
         >
-          <div className="relative flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-            <ArthaLogo size={30} />
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 rounded-full ring-2 ring-white/90 dark:ring-slate-900" />
+          <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0">
+            <ArthaLogo size={24} />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-300 rounded-full ring-2 ring-white/90 dark:ring-slate-900 animate-pulse" />
           </div>
-          <span className="text-xs font-extrabold tracking-wide flex items-center gap-1">
-            Artha AI <Sparkles size={13} className="text-amber-200" />
+          <span className="hidden sm:inline-flex text-xs font-extrabold tracking-wide items-center gap-1 ml-2">
+            Artha AI <Sparkles size={12} className="text-amber-200 shrink-0" />
           </span>
         </button>
       )}
@@ -304,7 +304,7 @@ export function AiChatbot() {
           className={`fixed z-50 transition-all duration-300 flex flex-col ${
             isExpanded
               ? 'inset-2 sm:inset-6 md:inset-10 lg:inset-14 max-w-4xl mx-auto rounded-3xl'
-              : 'bottom-2 sm:bottom-6 right-2 sm:right-6 w-[calc(100vw-16px)] sm:w-[420px] h-[580px] max-h-[calc(100vh-32px)] rounded-3xl'
+              : 'bottom-2 sm:bottom-6 right-2 sm:right-6 w-[calc(100vw-16px)] sm:w-[420px] h-[calc(100dvh-20px)] sm:h-[580px] max-h-[calc(100dvh-20px)] sm:max-h-[620px] rounded-3xl'
           } bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-gray-200/90 dark:border-slate-800 shadow-2xl overflow-hidden`}
         >
           {/* Header */}

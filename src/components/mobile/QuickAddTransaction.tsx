@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, MessageSquareText } from 'lucide-react';
+import { Check, MessageSquareText, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
@@ -17,6 +17,7 @@ export default function QuickAddTransaction() {
   const closeQuickAdd = useStore((s) => s.closeQuickAdd);
   const addTransaction = useStore((s) => s.addTransaction);
   const updateTransaction = useStore((s) => s.updateTransaction);
+  const deleteTransaction = useStore((s) => s.deleteTransaction);
   const showToast = useStore((s) => s.showToast);
   const accounts = useStore((s) => s.accounts);
   const currencySymbol = useStore((s) => s.settings.currencySymbol);
@@ -316,24 +317,41 @@ export default function QuickAddTransaction() {
             </div>
           </div>
 
-          {/* Save Button */}
-          <button
-            type="submit"
-            className={`w-full min-h-[50px] rounded-2xl text-white font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] ${
-              type === 'expense'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-600/25'
-                : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-emerald-600/25'
-            }`}
-          >
-            <Check size={20} strokeWidth={2.5} />
-            <span>
-              {editingTransaction
-                ? 'Save Changes'
-                : type === 'expense'
-                ? 'Save Expense'
-                : 'Save Income'}
-            </span>
-          </button>
+          {/* Save & Delete Buttons */}
+          <div className="space-y-2 pt-1">
+            <button
+              type="submit"
+              className={`w-full min-h-[50px] rounded-2xl text-white font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer ${
+                type === 'expense'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-600/25'
+                  : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-emerald-600/25'
+              }`}
+            >
+              <Check size={20} strokeWidth={2.5} />
+              <span>
+                {editingTransaction
+                  ? 'Save Changes'
+                  : type === 'expense'
+                  ? 'Save Expense'
+                  : 'Save Income'}
+              </span>
+            </button>
+
+            {editingTransaction && (
+              <button
+                type="button"
+                onClick={() => {
+                  deleteTransaction(editingTransaction.id);
+                  showToast('✓ Transaction deleted');
+                  closeQuickAdd();
+                }}
+                className="w-full min-h-[46px] rounded-2xl text-rose-500 hover:text-rose-600 dark:text-rose-400 font-bold flex items-center justify-center gap-2 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <Trash2 size={17} />
+                <span>Delete Transaction</span>
+              </button>
+            )}
+          </div>
         </form>
       </BottomSheet>
     </>

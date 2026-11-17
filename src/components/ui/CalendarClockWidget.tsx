@@ -65,7 +65,7 @@ export function CalendarClockWidget() {
   const selectedStats = dayActivityMap.get(selectedKey) ?? { income: 0, expense: 0 };
 
   return (
-    <div className="fintech-card p-4 sm:p-5 space-y-4">
+    <div className="fintech-card p-3 sm:p-5 space-y-3.5 sm:space-y-4">
       {/* Live Clock & Today Banner */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-slate-800">
         <div className="flex items-center gap-2.5">

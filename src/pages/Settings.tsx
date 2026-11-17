@@ -106,23 +106,23 @@ export default function Settings() {
       </div>
 
       {/* Cloud & Supabase PostgreSQL Authentication */}
-      <section className="fintech-card p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+      <section className="fintech-card p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <Cloud size={20} />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider truncate">
                 Cloud Sync &amp; Database
               </h2>
-              <p className="text-xs text-gray-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-slate-400 truncate">
                 Supabase PostgreSQL with Row-Level Security
               </p>
             </div>
           </div>
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto shrink-0 ${
               user
                 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
                 : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
@@ -196,23 +196,23 @@ export default function Settings() {
       </section>
 
       {/* Artha AI Configuration */}
-      <section className="fintech-card p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-xs">
+      <section className="fintech-card p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-xs shrink-0">
               <Bot size={20} />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider truncate">
                 Artha AI Wealth Intelligence
               </h2>
-              <p className="text-xs text-gray-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-slate-400 truncate">
                 Context-aware conversational advisor &amp; natural language transaction logger
               </p>
             </div>
           </div>
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto shrink-0 ${
               geminiKey
                 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
                 : 'bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400'

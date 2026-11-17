@@ -33,7 +33,7 @@ export function IntroPage() {
         {/* Hero + dashboard showcase */}
         <section
           aria-label="MyMoney introduction"
-          className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-16 lg:pb-24"
+          className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12 pt-16 sm:pt-24 lg:pt-28 pb-12 sm:pb-16 lg:pb-24"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
             <IntroHero onStart={handleStart} />

@@ -156,12 +156,12 @@ export default function Budgets() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <MonthSelector currentMonth={currentMonth} onChange={setCurrentMonth} />
           <button
             type="button"
             onClick={() => openAddSheet()}
-            className="min-h-[42px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            className="min-h-[42px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer flex-1 sm:flex-initial"
           >
             <Plus size={17} />
             <span>New Budget</span>
@@ -178,7 +178,7 @@ export default function Budgets() {
               <DollarSign size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(totals.totalAllocated, symbol)}
           </p>
           <span className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 block">
@@ -193,7 +193,7 @@ export default function Budgets() {
               <TrendingUp size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(totals.totalSpent, symbol)}
           </p>
           <div className="flex items-center gap-1.5 mt-1">
@@ -219,7 +219,7 @@ export default function Budgets() {
             </span>
           </div>
           <p
-            className={`text-lg sm:text-2xl font-bold font-tabular ${
+            className={`text-lg sm:text-2xl font-bold font-tabular truncate ${
               totals.remaining < 0
                 ? 'text-rose-600 dark:text-rose-400'
                 : 'text-gray-900 dark:text-white'
@@ -239,7 +239,7 @@ export default function Budgets() {
               <Zap size={14} />
             </span>
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white font-tabular truncate">
             {formatCurrency(Math.max(0, Math.round(totals.dailySafeSpend)), symbol)}
             <span className="text-xs font-normal text-gray-500 dark:text-slate-400">/day</span>
           </p>

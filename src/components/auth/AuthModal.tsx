@@ -57,16 +57,16 @@ export function AuthModal() {
       {/* Modal Dialog */}
       <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-2xl overflow-hidden z-10 animate-scale-in">
         {/* Glow Header */}
-        <div className="relative p-6 pb-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 text-white overflow-hidden">
+        <div className="relative p-4.5 sm:p-6 pb-3.5 sm:pb-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 text-white overflow-hidden">
           <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-                <ShieldCheck size={20} className="text-white" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner shrink-0">
+                <ShieldCheck size={18} className="text-white" />
               </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">Supabase Cloud Sync</h3>
-                <p className="text-xs text-emerald-100 font-medium">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base sm:text-lg leading-tight truncate">Supabase Cloud Sync</h3>
+                <p className="text-xs text-emerald-100 font-medium truncate">
                   {mode === 'signin' ? 'Sign in to access your finances' : 'Create your secure account'}
                 </p>
               </div>
@@ -75,14 +75,14 @@ export function AuthModal() {
               type="button"
               onClick={() => setOpen(false)}
               disabled={loading}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
             >
               <X size={16} />
             </button>
           </div>
 
           {/* Mode Tabs */}
-          <div className="mt-5 grid grid-cols-2 p-1 rounded-xl bg-black/20 backdrop-blur-sm text-xs font-semibold">
+          <div className="mt-4 sm:mt-5 grid grid-cols-2 p-1 rounded-xl bg-black/20 backdrop-blur-sm text-xs font-semibold">
             <button
               type="button"
               onClick={() => {
@@ -115,7 +115,7 @@ export function AuthModal() {
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-4.5 sm:p-6 space-y-4">
           {error && (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium leading-relaxed">
               {error}

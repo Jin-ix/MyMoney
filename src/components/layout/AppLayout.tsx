@@ -173,11 +173,11 @@ export function AppLayout() {
       <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
         {/* Responsive Top Header */}
         <header
-          className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3 transition-colors"
+          className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-2 sm:gap-3 transition-colors"
           style={{ paddingTop: 'max(0.625rem, var(--safe-area-inset-top))' }}
         >
           {/* Left: Mobile Brand or Desktop Page Context */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <div className="lg:hidden w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-sm shadow-emerald-600/25 shrink-0">
               <CircleDollarSign size={18} />
             </div>
@@ -354,16 +354,16 @@ export function AppLayout() {
 
         {/* PWA Install Prompt Banner */}
         {isInstallable && !installDismissed && (
-          <div className="bg-emerald-50/90 backdrop-blur-sm border-b border-emerald-200 px-4 py-2.5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <Download size={16} />
+          <div className="bg-emerald-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-emerald-200/80 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 flex items-center justify-between gap-2.5 transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Download size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-emerald-950 truncate">
+                <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                   Install MyMoney App
                 </p>
-                <p className="text-[11px] text-emerald-700 truncate">
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate hidden sm:block">
                   Add to your home screen for quick offline access
                 </p>
               </div>
@@ -372,7 +372,7 @@ export function AppLayout() {
               <button
                 type="button"
                 onClick={() => install()}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold min-h-[36px]"
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold min-h-[34px] transition-all cursor-pointer shadow-xs"
               >
                 Install
               </button>
@@ -380,9 +380,9 @@ export function AppLayout() {
                 type="button"
                 onClick={() => setInstallDismissed(true)}
                 aria-label="Dismiss install prompt"
-                className="p-1.5 text-emerald-700 hover:bg-emerald-100 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg min-h-[34px] min-w-[34px] flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           </div>
@@ -401,7 +401,7 @@ export function AppLayout() {
 
         {/* Page Content with smooth route transition */}
         <main
-          className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 lg:py-8"
+          className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3.5 sm:pt-4 lg:py-8"
           style={{
             paddingBottom: 'calc(var(--bottom-nav-height) + 84px + var(--safe-area-inset-bottom))',
           }}

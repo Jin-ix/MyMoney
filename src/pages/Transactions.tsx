@@ -406,7 +406,7 @@ export default function Transactions() {
 
                           {/* Quick Action Buttons (Edit / Delete) */}
                           <div
-                            className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
